@@ -61,26 +61,47 @@
     }
     .success { background-color: rgba(40, 167, 69, 0.2); color: #28a745; }
     .error { background-color: rgba(220, 53, 69, 0.2); color: #dc3545; }
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .copy-btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: 10px;
+      font-size: 0.8rem;
+    }
   </style>
 </head>
 <body>
   <div class="circuit-bg"></div>
   <div class="code-lines" id="code-lines"></div>
   <div class="energy-circles" id="energy-circles"></div>
+
   <div class="admin-container">
     <h2>Painel de Administração - LotoBot</h2>
-
     <div>
       <label for="apiKey">Chave de Acesso Admin:</label>
       <input type="password" id="apiKey" placeholder="Digite sua chave admin...">
-      <button class="btn-success" onclick="createToken()">Gerar Token Vitalício</button>
+      <button class="btn-success" id="createTokenBtn" onclick="createToken()">Gerar Token Vitalício</button>
       <div id="createMessage" class="message" style="display:none;"></div>
     </div>
-
     <hr>
-
     <div>
-      <button class="btn-success" onclick="loadTokens()">Listar Tokens Atuais</button>
+      <button class="btn-success" id="loadTokensBtn" onclick="loadTokens()">Listar Tokens Atuais</button>
       <table id="tokensTable" style="display:none;">
         <thead>
           <tr>
@@ -96,84 +117,211 @@
   </div>
 
   <script>
-    const API_URL = 'https://lotobot.onrender.com';
+    // URL correta da API
+    const API_URL = 'https://lotobot-backend.onrender.com';
     const ADMIN_SECRET = 'ADM_LOTOBOT_252023@#$';
-
+    
+    // Verificar se já está autenticado como admin
+    document.addEventListener('DOMContentLoaded', function() {
+      const storedToken = localStorage.getItem('lotobot_token');
+      const isAdmin = localStorage.getItem('isAdmin');
+      
+      if (storedToken && isAdmin === 'true') {
+        document.getElementById('apiKey').value = ADMIN_SECRET;
+      }
+      
+      // Adicionar animações de fundo
+      setupAnimations();
+    });
+    
     function showMessage(id, text, success = true) {
       const box = document.getElementById(id);
-      box.innerText = text;
+      box.innerHTML = text; // Usando innerHTML para permitir HTML (para o botão de copiar)
       box.className = `message ${success ? 'success' : 'error'}`;
       box.style.display = 'block';
     }
-
+    
+    function setLoading(buttonId, isLoading) {
+      const button = document.getElementById(buttonId);
+      if (isLoading) {
+        button.disabled = true;
+        button.innerHTML = button.textContent + ' <span class="loading"></span>';
+      } else {
+        button.disabled = false;
+        button.innerHTML = button.textContent.replace(' <span class="loading"></span>', '');
+      }
+    }
+    
     async function createToken() {
       const apiKey = document.getElementById('apiKey').value.trim();
       if (apiKey !== ADMIN_SECRET) {
         showMessage('createMessage', 'Chave de administrador inválida.', false);
         return;
       }
-
-      const res = await fetch(`${API_URL}/create-customer-token`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ apiKey })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showMessage('createMessage', `Token criado: ${data.token}`, true);
-        loadTokens();
-      } else {
-        showMessage('createMessage', data.message || 'Erro ao criar token.', false);
+      
+      setLoading('createTokenBtn', true);
+      
+      try {
+        const res = await fetch(`${API_URL}/create-customer-token`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ apiKey })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          const tokenMessage = `Token criado: <strong>${data.token}</strong> <button class="copy-btn" onclick="copyToClipboard('${data.token}')">Copiar</button>`;
+          showMessage('createMessage', tokenMessage, true);
+          loadTokens();
+        } else {
+          showMessage('createMessage', data.message || 'Erro ao criar token.', false);
+        }
+      } catch (error) {
+        console.error('Erro na requisição:', error);
+        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet.', false);
+      } finally {
+        setLoading('createTokenBtn', false);
       }
     }
-
+    
     async function loadTokens() {
       const apiKey = document.getElementById('apiKey').value.trim();
       if (apiKey !== ADMIN_SECRET) {
-        alert('Chave de administrador inválida.');
+        showMessage('createMessage', 'Chave de administrador inválida.', false);
         return;
       }
-
-      const res = await fetch(`${API_URL}/list-tokens?apiKey=${apiKey}`);
-      const data = await res.json();
-      if (!data.success) {
-        alert('Erro ao carregar tokens.');
-        return;
+      
+      setLoading('loadTokensBtn', true);
+      
+      try {
+        const res = await fetch(`${API_URL}/list-tokens?apiKey=${encodeURIComponent(apiKey)}`);
+        const data = await res.json();
+        
+        if (!data.success) {
+          showMessage('createMessage', data.message || 'Erro ao carregar tokens.', false);
+          return;
+        }
+        
+        const tbody = document.getElementById('tokensBody');
+        tbody.innerHTML = '';
+        
+        for (const [token, info] of Object.entries(data.tokens)) {
+          const tr = document.createElement('tr');
+          const expiryDate = new Date(info.expiry);
+          const isExpired = expiryDate <= new Date();
+          
+          tr.innerHTML = `
+            <td>${token} <button class="copy-btn" onclick="copyToClipboard('${token}')">Copiar</button></td>
+            <td>${info.plan}</td>
+            <td>${isExpired ? '<span style="color: #dc3545">Expirado</span>' : expiryDate.toLocaleDateString()}</td>
+            <td><button class="btn-danger" onclick="revokeToken('${token}')" ${isExpired ? 'disabled' : ''}>Revogar</button></td>
+          `;
+          
+          if (isExpired) {
+            tr.style.opacity = '0.6';
+          }
+          
+          tbody.appendChild(tr);
+        }
+        
+        document.getElementById('tokensTable').style.display = 'table';
+      } catch (error) {
+        console.error('Erro na requisição:', error);
+        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet.', false);
+      } finally {
+        setLoading('loadTokensBtn', false);
       }
-
-      const tbody = document.getElementById('tokensBody');
-      tbody.innerHTML = '';
-      for (const [token, info] of Object.entries(data.tokens)) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${token}</td>
-          <td>${info.plan}</td>
-          <td>${new Date(info.expiry).toLocaleDateString()}</td>
-          <td><button class="btn-danger" onclick="revokeToken('${token}')">Revogar</button></td>
-        `;
-        tbody.appendChild(tr);
-      }
-
-      document.getElementById('tokensTable').style.display = 'table';
     }
-
+    
     async function revokeToken(token) {
       const apiKey = document.getElementById('apiKey').value.trim();
       if (!confirm('Tem certeza que deseja revogar este token?')) return;
-
-      const res = await fetch(`${API_URL}/revoke-token`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ apiKey, token })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        alert('Token revogado com sucesso.');
-        loadTokens();
-      } else {
-        alert('Erro ao revogar token.');
+      
+      try {
+        const res = await fetch(`${API_URL}/revoke-token`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ apiKey, token })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          showMessage('createMessage', 'Token revogado com sucesso.', true);
+          loadTokens();
+        } else {
+          showMessage('createMessage', data.message || 'Erro ao revogar token.', false);
+        }
+      } catch (error) {
+        console.error('Erro na requisição:', error);
+        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet.', false);
       }
+    }
+    
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Token copiado para a área de transferência!');
+      }).catch(err => {
+        console.error('Erro ao copiar: ', err);
+      });
+    }
+    
+    function setupAnimations() {
+      const codeContainer = document.getElementById('code-lines');
+      const codeSnippets = [
+        "function validateAdmin() {",
+        "const key = localStorage.getItem('apiKey');",
+        "return verifyAdminSignature(key);",
+        "async function generateToken() {",
+        "const token = crypto.randomBytes(16).toString('hex');",
+        "return {token, expiry: new Date(2099, 11, 31)};"
+      ];
+      
+      // Limitar a 5 linhas de código para não sobrecarregar
+      for (let i = 0; i < 5; i++) {
+        const line = document.createElement('div');
+        line.classList.add('code-line');
+        line.textContent = codeSnippets[Math.floor(Math.random() * codeSnippets.length)];
+        line.style.left = `${Math.random() * 100}%`;
+        line.style.top = `${Math.random() * 100}%`;
+        line.style.animationDuration = `${Math.random() * 20 + 10}s`;
+        line.style.animationDelay = `${Math.random() * 5}s`;
+        codeContainer.appendChild(line);
+      }
+      
+      // Criar círculos de energia
+      const energyContainer = document.getElementById('energy-circles');
+      
+      function createEnergyCircle() {
+        const circle = document.createElement('div');
+        circle.classList.add('energy-circle');
+        const size = Math.random() * 100 + 50;
+        circle.style.width = `${size}px`;
+        circle.style.height = `${size}px`;
+        circle.style.left = `${Math.random() * 100}%`;
+        circle.style.top = `${Math.random() * 100}%`;
+        circle.style.borderColor = Math.random() > 0.5 ? 'var(--neon-blue)' : 'var(--neon-green)';
+        circle.style.animationDuration = `${Math.random() * 3 + 2}s`;
+        
+        energyContainer.appendChild(circle);
+        
+        setTimeout(() => {
+          if (circle && circle.parentNode) {
+            circle.parentNode.removeChild(circle);
+          }
+        }, 5000);
+      }
+      
+      const energyInterval = setInterval(createEnergyCircle, 3000);
+      
+      for (let i = 0; i < 2; i++) {
+        setTimeout(createEnergyCircle, i * 1000);
+      }
+      
+      window.addEventListener('beforeunload', function() {
+        clearInterval(energyInterval);
+      });
     }
   </script>
 </body>
