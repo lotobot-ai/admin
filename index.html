@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Administração - AI LotoBot</title>
+  <link rel="stylesheet" href="ai-lotobot.css">
+  <style>
+    .admin-container {
+      background-color: rgba(10, 10, 26, 0.85);
+      padding: 30px;
+      border-radius: 15px;
+      max-width: 800px;
+      margin: 40px auto;
+      color: white;
+      box-shadow: 0 0 20px var(--neon-blue);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--neon-green);
+    }
+    label, select, input, button {
+      display: block;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #444;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .btn-success {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .message {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    .success { background-color: rgba(40, 167, 69, 0.2); color: #28a745; }
+    .error { background-color: rgba(220, 53, 69, 0.2); color: #dc3545; }
+  </style>
+</head>
+<body>
+  <div class="circuit-bg"></div>
+  <div class="code-lines" id="code-lines"></div>
+  <div class="energy-circles" id="energy-circles"></div>
+  <div class="admin-container">
+    <h2>Painel de Administração - LotoBot</h2>
+
+    <div>
+      <label for="apiKey">Chave de Acesso Admin:</label>
+      <input type="password" id="apiKey" placeholder="Digite sua chave admin...">
+      <button class="btn-success" onclick="createToken()">Gerar Token Vitalício</button>
+      <div id="createMessage" class="message" style="display:none;"></div>
+    </div>
+
+    <hr>
+
+    <div>
+      <button class="btn-success" onclick="loadTokens()">Listar Tokens Atuais</button>
+      <table id="tokensTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>Plano</th>
+            <th>Expiração</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tokensBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'const API_URL = 'https://lotobot.onrender.com';
+    const ADMIN_SECRET = 'ADM_LOTOBOT_252023@#$';
+
+    function showMessage(id, text, success = true) {
+      const box = document.getElementById(id);
+      box.innerText = text;
+      box.className = `message ${success ? 'success' : 'error'}`;
+      box.style.display = 'block';
+    }
+
+    async function createToken() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (apiKey !== ADMIN_SECRET) {
+        showMessage('createMessage', 'Chave de administrador inválida.', false);
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/create-customer-token`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ apiKey })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showMessage('createMessage', `Token criado: ${data.token}`, true);
+        loadTokens();
+      } else {
+        showMessage('createMessage', data.message || 'Erro ao criar token.', false);
+      }
+    }
+
+    async function loadTokens() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (apiKey !== ADMIN_SECRET) {
+        alert('Chave de administrador inválida.');
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/list-tokens?apiKey=${apiKey}`);
+      const data = await res.json();
+      if (!data.success) {
+        alert('Erro ao carregar tokens.');
+        return;
+      }
+
+      const tbody = document.getElementById('tokensBody');
+      tbody.innerHTML = '';
+      for (const [token, info] of Object.entries(data.tokens)) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${token}</td>
+          <td>${info.plan}</td>
+          <td>${new Date(info.expiry).toLocaleDateString()}</td>
+          <td><button class="btn-danger" onclick="revokeToken('${token}')">Revogar</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      document.getElementById('tokensTable').style.display = 'table';
+    }
+
+    async function revokeToken(token) {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (!confirm('Tem certeza que deseja revogar este token?')) return;
+
+      const res = await fetch(`${API_URL}/revoke-token`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ apiKey, token })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('Token revogado com sucesso.');
+        loadTokens();
+      } else {
+        alert('Erro ao revogar token.');
+      }
+    }
+  </script>
+</body>
+</html>
