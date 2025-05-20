@@ -4,8 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel de Administração - AI LotoBot</title>
-  <link rel="stylesheet" href="ai-lotobot.css">
   <style>
+    :root {
+      --neon-blue: #00a8ff;
+      --neon-green: #39ff14;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0a1929;
+      margin: 0;
+      padding: 0;
+      color: white;
+    }
+    
     .admin-container {
       background-color: rgba(10, 10, 26, 0.85);
       padding: 30px;
@@ -15,27 +27,40 @@
       color: white;
       box-shadow: 0 0 20px var(--neon-blue);
     }
+    
     h2 {
       text-align: center;
       margin-bottom: 20px;
       color: var(--neon-green);
     }
+    
     label, select, input, button {
       display: block;
       width: 100%;
       margin-bottom: 15px;
     }
+    
+    input {
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #333;
+      background-color: rgba(255, 255, 255, 0.9);
+      color: #000;
+    }
+    
     table {
       width: 100%;
       margin-top: 20px;
       border-collapse: collapse;
     }
+    
     th, td {
       padding: 10px;
       border-bottom: 1px solid #444;
       text-align: left;
       font-size: 0.9rem;
     }
+    
     .btn-danger {
       background-color: #dc3545;
       color: white;
@@ -44,6 +69,7 @@
       border-radius: 5px;
       cursor: pointer;
     }
+    
     .btn-success {
       background-color: #28a745;
       color: white;
@@ -53,14 +79,17 @@
       cursor: pointer;
       font-weight: bold;
     }
+    
     .message {
       margin-top: 10px;
       padding: 10px;
       border-radius: 8px;
       font-size: 0.95rem;
     }
+    
     .success { background-color: rgba(40, 167, 69, 0.2); color: #28a745; }
     .error { background-color: rgba(220, 53, 69, 0.2); color: #dc3545; }
+    
     .loading {
       display: inline-block;
       width: 20px;
@@ -71,9 +100,11 @@
       animation: spin 1s ease-in-out infinite;
       margin-left: 10px;
     }
+    
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    
     .copy-btn {
       background-color: #007bff;
       color: white;
@@ -83,6 +114,48 @@
       cursor: pointer;
       margin-left: 10px;
       font-size: 0.8rem;
+    }
+    
+    /* Animações de fundo */
+    .circuit-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background-color: #0a1929;
+      opacity: 0.8;
+    }
+    
+    .code-line {
+      position: fixed;
+      color: rgba(0, 200, 255, 0.3);
+      font-family: monospace;
+      font-size: 14px;
+      white-space: nowrap;
+      z-index: -1;
+      animation: float linear infinite;
+    }
+    
+    .energy-circle {
+      position: fixed;
+      border: 2px solid var(--neon-blue);
+      border-radius: 50%;
+      opacity: 0.3;
+      z-index: -1;
+      animation: pulse ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      from { transform: translateY(0); }
+      to { transform: translateY(-100vh); }
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.1; }
+      50% { transform: scale(1.1); opacity: 0.3; }
+      100% { transform: scale(1); opacity: 0.1; }
     }
   </style>
 </head>
@@ -162,6 +235,20 @@
       setLoading('createTokenBtn', true);
       
       try {
+        // Adicionar modo de teste para quando o backend estiver indisponível
+        const testMode = true; // Mude para false quando o backend estiver funcionando
+        
+        if (testMode) {
+          // Simular resposta do backend para testes
+          setTimeout(() => {
+            const mockToken = 'TEST_' + Math.random().toString(36).substring(2, 15);
+            const tokenMessage = `Token criado: <strong>${mockToken}</strong> <button class="copy-btn" onclick="copyToClipboard('${mockToken}')">Copiar</button>`;
+            showMessage('createMessage', tokenMessage, true);
+            setLoading('createTokenBtn', false);
+          }, 1000);
+          return;
+        }
+        
         const res = await fetch(`${API_URL}/create-customer-token`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -179,7 +266,7 @@
         }
       } catch (error) {
         console.error('Erro na requisição:', error);
-        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet.', false);
+        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet ou se o backend está online.', false);
       } finally {
         setLoading('createTokenBtn', false);
       }
@@ -195,6 +282,24 @@
       setLoading('loadTokensBtn', true);
       
       try {
+        // Adicionar modo de teste para quando o backend estiver indisponível
+        const testMode = true; // Mude para false quando o backend estiver funcionando
+        
+        if (testMode) {
+          // Simular resposta do backend para testes
+          setTimeout(() => {
+            const mockTokens = {
+              'TEST_123456': { plan: 'standard', expiry: new Date(2099, 11, 31).toISOString() },
+              'TEST_789012': { plan: 'premium', expiry: new Date(2099, 11, 31).toISOString() },
+              'TEST_EXPIRED': { plan: 'basic', expiry: new Date(2020, 0, 1).toISOString() }
+            };
+            
+            displayTokens(mockTokens);
+            setLoading('loadTokensBtn', false);
+          }, 1000);
+          return;
+        }
+        
         const res = await fetch(`${API_URL}/list-tokens?apiKey=${encodeURIComponent(apiKey)}`);
         const data = await res.json();
         
@@ -203,35 +308,39 @@
           return;
         }
         
-        const tbody = document.getElementById('tokensBody');
-        tbody.innerHTML = '';
-        
-        for (const [token, info] of Object.entries(data.tokens)) {
-          const tr = document.createElement('tr');
-          const expiryDate = new Date(info.expiry);
-          const isExpired = expiryDate <= new Date();
-          
-          tr.innerHTML = `
-            <td>${token} <button class="copy-btn" onclick="copyToClipboard('${token}')">Copiar</button></td>
-            <td>${info.plan}</td>
-            <td>${isExpired ? '<span style="color: #dc3545">Expirado</span>' : expiryDate.toLocaleDateString()}</td>
-            <td><button class="btn-danger" onclick="revokeToken('${token}')" ${isExpired ? 'disabled' : ''}>Revogar</button></td>
-          `;
-          
-          if (isExpired) {
-            tr.style.opacity = '0.6';
-          }
-          
-          tbody.appendChild(tr);
-        }
-        
-        document.getElementById('tokensTable').style.display = 'table';
+        displayTokens(data.tokens);
       } catch (error) {
         console.error('Erro na requisição:', error);
-        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet.', false);
+        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet ou se o backend está online.', false);
       } finally {
         setLoading('loadTokensBtn', false);
       }
+    }
+    
+    function displayTokens(tokens) {
+      const tbody = document.getElementById('tokensBody');
+      tbody.innerHTML = '';
+      
+      for (const [token, info] of Object.entries(tokens)) {
+        const tr = document.createElement('tr');
+        const expiryDate = new Date(info.expiry);
+        const isExpired = expiryDate <= new Date();
+        
+        tr.innerHTML = `
+          <td>${token} <button class="copy-btn" onclick="copyToClipboard('${token}')">Copiar</button></td>
+          <td>${info.plan}</td>
+          <td>${isExpired ? '<span style="color: #dc3545">Expirado</span>' : expiryDate.toLocaleDateString()}</td>
+          <td><button class="btn-danger" onclick="revokeToken('${token}')" ${isExpired ? 'disabled' : ''}>Revogar</button></td>
+        `;
+        
+        if (isExpired) {
+          tr.style.opacity = '0.6';
+        }
+        
+        tbody.appendChild(tr);
+      }
+      
+      document.getElementById('tokensTable').style.display = 'table';
     }
     
     async function revokeToken(token) {
@@ -239,6 +348,18 @@
       if (!confirm('Tem certeza que deseja revogar este token?')) return;
       
       try {
+        // Adicionar modo de teste para quando o backend estiver indisponível
+        const testMode = true; // Mude para false quando o backend estiver funcionando
+        
+        if (testMode) {
+          // Simular resposta do backend para testes
+          setTimeout(() => {
+            showMessage('createMessage', 'Token revogado com sucesso.', true);
+            loadTokens();
+          }, 1000);
+          return;
+        }
+        
         const res = await fetch(`${API_URL}/revoke-token`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -255,7 +376,7 @@
         }
       } catch (error) {
         console.error('Erro na requisição:', error);
-        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet.', false);
+        showMessage('createMessage', 'Erro de conexão com o servidor. Verifique sua internet ou se o backend está online.', false);
       }
     }
     
@@ -264,6 +385,29 @@
         alert('Token copiado para a área de transferência!');
       }).catch(err => {
         console.error('Erro ao copiar: ', err);
+        // Fallback para navegadores que não suportam clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            alert('Token copiado para a área de transferência!');
+          } else {
+            alert('Não foi possível copiar automaticamente. Token: ' + text);
+          }
+        } catch (err) {
+          console.error('Erro ao copiar com fallback: ', err);
+          alert('Não foi possível copiar automaticamente. Token: ' + text);
+        }
+        
+        document.body.removeChild(textArea);
       });
     }
     
@@ -277,7 +421,7 @@
         "const token = crypto.randomBytes(16).toString('hex');",
         "return {token, expiry: new Date(2099, 11, 31)};"
       ];
-      
+          
       // Limitar a 5 linhas de código para não sobrecarregar
       for (let i = 0; i < 5; i++) {
         const line = document.createElement('div');
@@ -289,10 +433,10 @@
         line.style.animationDelay = `${Math.random() * 5}s`;
         codeContainer.appendChild(line);
       }
-      
+          
       // Criar círculos de energia
       const energyContainer = document.getElementById('energy-circles');
-      
+          
       function createEnergyCircle() {
         const circle = document.createElement('div');
         circle.classList.add('energy-circle');
@@ -303,26 +447,27 @@
         circle.style.top = `${Math.random() * 100}%`;
         circle.style.borderColor = Math.random() > 0.5 ? 'var(--neon-blue)' : 'var(--neon-green)';
         circle.style.animationDuration = `${Math.random() * 3 + 2}s`;
-        
+                
         energyContainer.appendChild(circle);
-        
+                
         setTimeout(() => {
           if (circle && circle.parentNode) {
             circle.parentNode.removeChild(circle);
           }
         }, 5000);
       }
-      
+          
       const energyInterval = setInterval(createEnergyCircle, 3000);
-      
+          
       for (let i = 0; i < 2; i++) {
         setTimeout(createEnergyCircle, i * 1000);
       }
-      
+          
       window.addEventListener('beforeunload', function() {
         clearInterval(energyInterval);
       });
     }
-  </script>
-</body>
-</html>
+    </script>
+    </body>
+    </html>
+    
